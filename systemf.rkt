@@ -31,7 +31,7 @@
   ;; Values
   (v ::= n
      b
-     () ;; Unit  value
+     ∅ ;; Unit 
      (λ (x : t) e) ;; Value Abstraction
      (Λ x e)) ;; Type Abstraction
   (e ::=
@@ -107,7 +107,7 @@
     ['zero? (λ (x) (if (zero? x)
                        'true
                        'false))]
-    ['null (λ (x) `())]))
+    ['null (λ (x) `∅)]))
 
 
 
@@ -127,7 +127,7 @@
    (⊢ Γ n : Int)]
 
   [------ t-unit
-   (⊢ Γ () : Unit)]
+   (⊢ Γ ∅ : Unit)]
 
   ;; Variables type check if they are bound
   [(bound x Γ)
@@ -241,7 +241,7 @@
   subst : e x e -> e
   [(subst n x e) n]
   [(subst b x e) b]
-  [(subst () x e) ()]
+  [(subst ∅ x e) ∅]
   [(subst x_1 x_1 e) e]
   [(subst x_1 x_2 e) x_1]
   [(subst (λ (x_1 : t) e) x_1 e_1) (λ (x_1 : t) e)]
@@ -408,7 +408,7 @@
 (define letexample
   `(let ((id : (∀ X (X -> X))
              (Λ X (λ (x : X) x))))
-     ((id Unit) ())))
+     ((id Unit) ∅)))
 
 
 (module+ test
@@ -423,7 +423,7 @@
    'Unit)
   (check-equal?
    (run letexample)
-   `()))
+   `∅))
 
 
                       
