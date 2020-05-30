@@ -24,6 +24,7 @@
      x ;; Type Variable
      (∀ x t) ;; Universal Quantification
      (t -> t) ;; Function
+     (list t) ;; Lists
      ;; Base types
      Bool 
      Int
@@ -31,7 +32,7 @@
   ;; Values
   (v ::= n
      b
-     ∅ ;; Unit 
+     ∅ ;; Unit
      (λ (x : t) e) ;; Value Abstraction
      (Λ x e)) ;; Type Abstraction
   (e ::=
@@ -357,42 +358,47 @@
   (redex-match? F binop p))
 
 (define/contract (typecheck? p)
-  (-> valid? (or/c type? false?))
-  (let ((t (judgment-holds (⊢ () ,p : t) t)))
+  (-> any/c (or/c type? false?))
+  (let ((t (judgment-holds (⊢ () ,(desugar p) : t) t)))
     (if (empty? t)
         #f
         (first t))))
 
 (define/contract (run p)
   (-> typecheck? value?)
-  (first (apply-reduction-relation* r* p)))
+  (first (apply-reduction-relation* r* (desugar p))))
 
-(define (erase e)
+(define/contract (desugar e)
+  (-> any/c valid?)
   (match e
-    [(? number?) e]
-    ['true 'true]
-    ['false 'false]
-    [(? symbol?) e]
-    [`(,e1 ,(? binop? o) ,e2)
-     `(,(erase e1) ,o ,(erase e2))]
-    [`(,e1 ,(? type?)) (erase e1)]
-    [`(Λ ,x ,e) (erase e)]
-    [`(zero? ,e) `(zero? ,(erase e))]
-    [`(if ,e1 ,e2 ,e3) `(if ,(erase e1)
-                            ,(erase e2)
-                            ,(erase e3))]
-    [`(λ (,x : ,t) ,e) `(λ ,x ,e)]
-    [`(,e1 ,e2) `(,(erase e1) ,(erase e2))]))
+    [`(letrec ((,f : ,t ,eb))
+        ,ec)
+     `(let ((,f : ,t (fix (λ (,f : ,t)
+                            ,eb))))
+        ,ec)]
+    [(? list? l) (map desugar l)]
+    [else else]))
 
-
+(define sugarfact
+  `(letrec ((fact : (Int -> Int)
+                  (λ (n : Int)
+                    (if (zero? n)
+                        1
+                        (n * (fact (n - 1)))))))
+     (fact 5)))
 
 (module+ test
   (check-equal?
-   (erase `(λ (x : Int) x))
-   `(λ x x))
+   (typecheck? sugarfact)
+   'Int)
   (check-equal?
-   (erase `(Λ X (λ (x : X) x)))
-   `(λ x x)))
+   (run sugarfact)
+   120))
+
+
+
+
+
 
 (define fact
   `(fix
@@ -426,7 +432,27 @@
    `∅))
 
 
-                      
+(define (erase e)
+  (match e
+    [(? number?) e]
+    ['true 'true]
+    ['false 'false]
+    [(? symbol?) e]
+    [`(,e1 ,(? binop? o) ,e2)
+     `(,(erase e1) ,o ,(erase e2))]
+    [`(,e1 ,(? type?)) (erase e1)]
+    [`(Λ ,x ,e) (erase e)]
+    [`(zero? ,e) `(zero? ,(erase e))]
+    [`(if ,e1 ,e2 ,e3) `(if ,(erase e1)
+                            ,(erase e2)
+                            ,(erase e3))]
+    [`(λ (,x : ,t) ,e) `(λ ,x ,e)]
+    [`(,e1 ,e2) `(,(erase e1) ,(erase e2))]))
 
-
-
+(module+ test
+  (check-equal?
+   (erase `(λ (x : Int) x))
+   `(λ x x))
+  (check-equal?
+   (erase `(Λ X (λ (x : X) x)))
+   `(λ x x)))
